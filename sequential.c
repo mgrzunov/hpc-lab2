@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #define PIXEL_WIDTH 3840
 #define PIXEL_HEIGHT 2160
@@ -52,8 +53,8 @@ int main(int argc, char *argv[])
     }
 
     // Program uses only 2 frame buffers
-    uint8_t frame_data_1[PIXEL_NUM * 3];
-    uint8_t frame_data_2[PIXEL_NUM * 3];
+    uint8_t *frame_data_1 = malloc(sizeof(*frame_data_1) * PIXEL_NUM * 3);
+    uint8_t *frame_data_2 = malloc(sizeof(*frame_data_1) * PIXEL_NUM * 3);
 
     // Process all 60 frames
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
@@ -66,12 +67,12 @@ int main(int argc, char *argv[])
         /**********************/
         byte_count = fread(
             &rgb_frame_data[0],
-            sizeof(frame_data_1[0]), sizeof(frame_data_1) / sizeof(frame_data_1[0]), 
+            sizeof(frame_data_1[0]), PIXEL_NUM * 3, 
             rgb_video_file
         );
-        if (byte_count != sizeof(frame_data_1) / sizeof(frame_data_1[0]))
+        if (byte_count != PIXEL_NUM * 3)
         {
-            fprintf(stderr, "[f%d - 1] Only loaded %llu bytes of original!\n", frame_i, byte_count);
+            fprintf(stderr, "[f%d - 1] Only loaded %lu bytes of original!\n", frame_i, byte_count);
             break;
         }
 
@@ -95,12 +96,12 @@ int main(int argc, char *argv[])
         }
         byte_count = fwrite(
             &yuv_frame_data[0],
-            sizeof(frame_data_1[0]), sizeof(frame_data_1) / sizeof(frame_data_1[0]), 
+            sizeof(frame_data_1[0]), PIXEL_NUM * 3, 
             yuv_file
         );
-        if (byte_count != sizeof(frame_data_1) / sizeof(frame_data_1[0]))
+        if (byte_count != PIXEL_NUM * 3)
         {
-            fprintf(stderr, "[f%d - 2] Only wrote %llu bytes of original!\n", frame_i, byte_count);
+            fprintf(stderr, "[f%d - 2] Only wrote %lu bytes of original!\n", frame_i, byte_count);
             break;
         }
 
@@ -131,11 +132,11 @@ int main(int argc, char *argv[])
         byte_count = fwrite(
             &yuv_undersampled_data[0],
             sizeof(frame_data_1[0]), PIXEL_NUM + PIXEL_NUM / 2, 
-            yuv_file
+            yuv_undersampled_file
         );
         if (byte_count != PIXEL_NUM + PIXEL_NUM / 2)
         {
-            fprintf(stderr, "[f%d - 3] Only wrote %llu bytes of original!\n", frame_i, byte_count);
+            fprintf(stderr, "[f%d - 3] Only wrote %lu bytes of original!\n", frame_i, byte_count);
             break;
         }
 
@@ -159,12 +160,12 @@ int main(int argc, char *argv[])
         }
         byte_count = fwrite(
             &yuv_oversampled_data[0],
-            sizeof(frame_data_1[0]), sizeof(frame_data_1) / sizeof(frame_data_1[0]), 
-            yuv_file
+            sizeof(frame_data_1[0]), PIXEL_NUM * 3, 
+            yuv_oversampled_file
         );
-        if (byte_count != sizeof(frame_data_1) / sizeof(frame_data_1[0]))
+        if (byte_count != PIXEL_NUM * 3)
         {
-            fprintf(stderr, "[f%d - 4] Only wrote %llu bytes of original!\n", frame_i, byte_count);
+            fprintf(stderr, "[f%d - 4] Only wrote %lu bytes of original!\n", frame_i, byte_count);
             break;
         }
     }

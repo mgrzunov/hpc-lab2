@@ -1,2 +1,5 @@
 .vscode/
 *.exe
+*.yuv
+*.zip
+YUView-Win/
