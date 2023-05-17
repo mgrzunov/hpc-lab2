@@ -2,6 +2,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+static clock_t start_time;
+static clock_t stop_time;
+
+#define MEASURE_START() (start_time = clock())
+#define MEASURE_STOP()  (stop_time = clock())
+#define MEASURE_PRINT(tag) (printf("[" tag "] Time = %.4f seconds\n", ((float)(stop_time - start_time)) / CLOCKS_PER_SEC))
 
 #define PIXEL_WIDTH 3840
 #define PIXEL_HEIGHT 2160
@@ -56,6 +64,9 @@ int main(int argc, char *argv[])
     // Program uses only 2 frame buffers
     uint8_t *frame_data_1 = malloc(sizeof(*frame_data_1) * PIXEL_NUM * 3);
     uint8_t *frame_data_2 = malloc(sizeof(*frame_data_1) * PIXEL_NUM * 3);
+
+    // Start measuring
+    MEASURE_START();
 
     // Process all 60 frames
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
@@ -183,6 +194,11 @@ int main(int argc, char *argv[])
             break;
         }
     }
+
+    // Stop measuring
+    MEASURE_STOP();
+    // Print measurement
+    MEASURE_PRINT("Total");
     
     /*************************/
     /*** CLOSE VIDEO FILES ***/
