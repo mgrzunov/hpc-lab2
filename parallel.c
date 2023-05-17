@@ -126,9 +126,9 @@ int main(int argc, char *argv[])
         memcpy(&yuv_undersampled_data[0], &yuv_frame_data[0], PIXEL_NUM); // Just copy Y values
         
         #pragma omp parallel for collapse(2)
-        for (uint row = 0; row != PIXEL_HEIGHT; row += 2)
+        for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
         { 
-            for (uint col = 0; col != PIXEL_WIDTH; col += 2)
+            for (uint col = 0; col < PIXEL_WIDTH; col += 2)
             {
                 // Average 4 U values into 1 (+ PIXEL_NUM because Y is preserved)
                 yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM] = (
@@ -164,9 +164,9 @@ int main(int argc, char *argv[])
         memcpy(&yuv_oversampled_data[0], &yuv_undersampled_data[0], PIXEL_NUM); // Just copy Y values
         
         #pragma omp parallel for collapse(2)
-        for (uint row = 0; row != PIXEL_HEIGHT; row += 2)
+        for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
         {
-            for (uint col = 0; col != PIXEL_WIDTH; col += 2)
+            for (uint col = 0; col < PIXEL_WIDTH; col += 2)
             {
                 // Oversample U component
                 yuv_oversampled_data[   row    * PIXEL_WIDTH + col     + PIXEL_NUM] =
