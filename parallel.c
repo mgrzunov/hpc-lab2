@@ -81,6 +81,8 @@ int main(int argc, char *argv[])
         /*** RGB --> YUV ***/
         /*******************/
         uint8_t *yuv_frame_data = &frame_data_1[0]; // Can use same buffer
+
+        #pragma omp parallel for
         for (uint pixel_i = 0; pixel_i != PIXEL_NUM; ++pixel_i)
         {
             const uint8_t r_value = rgb_frame_data[pixel_i];
@@ -111,8 +113,10 @@ int main(int argc, char *argv[])
         /*************************************/
         uint8_t *yuv_undersampled_data = &frame_data_2[0]; // Uses other buffer
         memcpy(&yuv_undersampled_data[0], &yuv_frame_data[0], PIXEL_NUM); // Just copy Y values
+        
+        #pragma omp parallel for collapse(2)
         for (uint row = 0; row != PIXEL_HEIGHT; row += 2)
-        {            
+        { 
             for (uint col = 0; col != PIXEL_WIDTH; col += 2)
             {
                 // Average 4 U values into 1 (+ PIXEL_NUM because Y is preserved)
@@ -147,6 +151,8 @@ int main(int argc, char *argv[])
         /*************************************/
         uint8_t *yuv_oversampled_data = &frame_data_1[0]; // Uses other buffer
         memcpy(&yuv_oversampled_data[0], &yuv_undersampled_data[0], PIXEL_NUM); // Just copy Y values
+        
+        #pragma omp parallel for collapse(2)
         for (uint row = 0; row != PIXEL_HEIGHT; row += 2)
         {
             for (uint col = 0; col != PIXEL_WIDTH; col += 2)
