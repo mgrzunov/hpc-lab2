@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define PIXEL_WIDTH 3840
 #define PIXEL_HEIGHT 2160
@@ -109,23 +110,24 @@ int main(int argc, char *argv[])
         /*** Undersampling 4:4:4 --> 4:2:0 ***/
         /*************************************/
         uint8_t *yuv_undersampled_data = &frame_data_2[0]; // Uses other buffer
-        for (uint row = 0; row != PIXEL_HEIGHT / 2; ++row)
-        {
-            for (uint col = 0; col != PIXEL_WIDTH / 2; ++col)
+        memcpy(&yuv_undersampled_data[0], &yuv_frame_data[0], PIXEL_NUM); // Just copy Y values
+        for (uint row = 0; row != PIXEL_HEIGHT; row += 2)
+        {            
+            for (uint col = 0; col != PIXEL_WIDTH; col += 2)
             {
                 // Average 4 U values into 1 (+ PIXEL_NUM because Y is preserved)
-                yuv_undersampled_data[row * (PIXEL_WIDTH / 2) + col + PIXEL_NUM] = (
-                    yuv_frame_data[  2 * row     * PIXEL_WIDTH + 2 * col     + PIXEL_NUM] +
-                    yuv_frame_data[  2 * row     * PIXEL_WIDTH + 2 * col + 1 + PIXEL_NUM] +
-                    yuv_frame_data[(2 * row + 1) * PIXEL_WIDTH + 2 * col     + PIXEL_NUM] +
-                    yuv_frame_data[(2 * row + 1) * PIXEL_WIDTH + 2 * col + 1 + PIXEL_NUM]
+                yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM] = (
+                    yuv_frame_data[   row    * PIXEL_WIDTH + col     + PIXEL_NUM] +
+                    yuv_frame_data[   row    * PIXEL_WIDTH + col + 1 + PIXEL_NUM] +
+                    yuv_frame_data[(row + 1) * PIXEL_WIDTH + col     + PIXEL_NUM] +
+                    yuv_frame_data[(row + 1) * PIXEL_WIDTH + col + 1 + PIXEL_NUM]
                 ) / 4;
                 // Average 4 V values into 1 (+ PIXEL_NUM + PIXEL_NUM / 4 for Y and U offset)
-                yuv_undersampled_data[row * (PIXEL_WIDTH / 2) + col + (PIXEL_NUM + PIXEL_NUM / 4)] = (
-                    yuv_frame_data[  2 * row     * PIXEL_WIDTH + 2 * col     + (PIXEL_NUM + PIXEL_NUM / 4)] +
-                    yuv_frame_data[  2 * row     * PIXEL_WIDTH + 2 * col + 1 + (PIXEL_NUM + PIXEL_NUM / 4)] +
-                    yuv_frame_data[(2 * row + 1) * PIXEL_WIDTH + 2 * col     + (PIXEL_NUM + PIXEL_NUM / 4)] +
-                    yuv_frame_data[(2 * row + 1) * PIXEL_WIDTH + 2 * col + 1 + (PIXEL_NUM + PIXEL_NUM / 4)]
+                yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)] = (
+                    yuv_frame_data[   row    * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM / 4)] +
+                    yuv_frame_data[   row    * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM / 4)] +
+                    yuv_frame_data[(row + 1) * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM / 4)] +
+                    yuv_frame_data[(row + 1) * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM / 4)]
                 ) / 4;
             }
         }
@@ -144,18 +146,31 @@ int main(int argc, char *argv[])
         /*** Oversampling  4:2:0 --> 4:4:4 ***/
         /*************************************/
         uint8_t *yuv_oversampled_data = &frame_data_1[0]; // Uses other buffer
-        for (uint row = 0; row != PIXEL_HEIGHT / 2; ++row)
+        memcpy(&yuv_oversampled_data[0], &yuv_undersampled_data[0], PIXEL_NUM); // Just copy Y values
+        for (uint row = 0; row != PIXEL_HEIGHT; row += 2)
         {
-            for (uint col = 0; col != PIXEL_WIDTH / 2; ++col)
+
+            for (uint col = 0; col != PIXEL_WIDTH; col += 2)
             {
-                yuv_oversampled_data[  2 * row     * PIXEL_WIDTH + 2 * col     + PIXEL_NUM] =
-                    yuv_undersampled_data[row * (PIXEL_WIDTH / 2) + col + PIXEL_NUM];
-                yuv_oversampled_data[  2 * row     * PIXEL_WIDTH + 2 * col + 1 + PIXEL_NUM] =
-                    yuv_undersampled_data[row * (PIXEL_WIDTH / 2) + col + PIXEL_NUM];
-                yuv_oversampled_data[(2 * row + 1) * PIXEL_WIDTH + 2 * col     + PIXEL_NUM] =
-                    yuv_undersampled_data[row * (PIXEL_WIDTH / 2) + col + PIXEL_NUM];
-                yuv_oversampled_data[(2 * row + 1) * PIXEL_WIDTH + 2 * col + 1 + PIXEL_NUM] =
-                    yuv_undersampled_data[row * (PIXEL_WIDTH / 2) + col + PIXEL_NUM];
+                // Oversample U component
+                yuv_oversampled_data[   row    * PIXEL_WIDTH + col     + PIXEL_NUM] =
+                    yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
+                yuv_oversampled_data[   row    * PIXEL_WIDTH + col + 1 + PIXEL_NUM] =
+                    yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
+                yuv_oversampled_data[(row + 1) * PIXEL_WIDTH + col     + PIXEL_NUM] =
+                    yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
+                yuv_oversampled_data[(row + 1) * PIXEL_WIDTH + col + 1 + PIXEL_NUM] =
+                    yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
+
+                // Oversample V component
+                yuv_oversampled_data[   row    * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM / 4)] =
+                    yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)]; 
+                yuv_oversampled_data[   row    * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM / 4)] =
+                    yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
+                yuv_oversampled_data[(row + 1) * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM / 4)] =
+                    yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
+                yuv_oversampled_data[(row + 1) * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM / 4)] =
+                    yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
             }
         }
         byte_count = fwrite(
