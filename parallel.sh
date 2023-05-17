@@ -10,4 +10,4 @@
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 echo "Parallel on $SLURM_CPUS_PER_TASK CPUs"
-./par rgb_video.yuv
+./par rgb_video.yuv $SLURM_CPUS_PER_TASK

@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
         return -1;
     }
     MEASURE_STOP();
-    MEASURE_PRINT("Load RGB");
+    //MEASURE_PRINT("Load RGB"); Measuring for total
 
     /*******************/
     /*** RGB --> YUV ***/
