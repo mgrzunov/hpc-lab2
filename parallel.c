@@ -4,6 +4,8 @@
 #include <string.h>
 #include <time.h>
 
+#include <omp.h>
+
 static clock_t total_time;
 static clock_t start_time;
 static clock_t stop_time;
@@ -34,11 +36,12 @@ typedef unsigned int uint;
 int main(int argc, char *argv[])
 {
     // Rudimentary startup arg check
-    if (argc != 2)
+    if (argc != 3)
     {
-        fprintf(stderr, "Should have 1 argument, the original video path!\n");
+        fprintf(stderr, "Should have 2 arguments, the original video path and num of threads!\n");
         return -1;
     }
+    omp_set_num_threads(atoi(argv[2]));
 
     /************************/
     /*** OPEN VIDEO FILES ***/
