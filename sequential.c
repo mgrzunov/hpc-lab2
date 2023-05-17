@@ -124,10 +124,10 @@ int main(int argc, char *argv[])
                 ) / 4;
                 // Average 4 V values into 1 (+ PIXEL_NUM + PIXEL_NUM / 4 for Y and U offset)
                 yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)] = (
-                    yuv_frame_data[   row    * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM / 4)] +
-                    yuv_frame_data[   row    * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM / 4)] +
-                    yuv_frame_data[(row + 1) * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM / 4)] +
-                    yuv_frame_data[(row + 1) * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM / 4)]
+                    yuv_frame_data[   row    * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM)] +
+                    yuv_frame_data[   row    * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM)] +
+                    yuv_frame_data[(row + 1) * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM)] +
+                    yuv_frame_data[(row + 1) * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM)]
                 ) / 4;
             }
         }
@@ -163,13 +163,13 @@ int main(int argc, char *argv[])
                     yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
 
                 // Oversample V component
-                yuv_oversampled_data[   row    * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM / 4)] =
+                yuv_oversampled_data[   row    * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM)] =
                     yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)]; 
-                yuv_oversampled_data[   row    * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM / 4)] =
+                yuv_oversampled_data[   row    * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM)] =
                     yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
-                yuv_oversampled_data[(row + 1) * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM / 4)] =
+                yuv_oversampled_data[(row + 1) * PIXEL_WIDTH + col     + (PIXEL_NUM + PIXEL_NUM)] =
                     yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
-                yuv_oversampled_data[(row + 1) * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM / 4)] =
+                yuv_oversampled_data[(row + 1) * PIXEL_WIDTH + col + 1 + (PIXEL_NUM + PIXEL_NUM)] =
                     yuv_undersampled_data[(row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
             }
         }
