@@ -3,3 +3,6 @@
 *.yuv
 *.zip
 YUView-Win/
+*.out
+par
+seq
