@@ -208,9 +208,9 @@ int main(int argc, char *argv[])
     #pragma omp parallel for collapse(3)
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
     {
-        for (uint row = 0; row != PIXEL_HEIGHT; row += 2)
+        for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
         {
-            for (uint col = 0; col != PIXEL_WIDTH; col += 2)
+            for (uint col = 0; col < PIXEL_WIDTH; col += 2)
             {
                 // Inverse operation of undersampling
                 // Oversample U component
