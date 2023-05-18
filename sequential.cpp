@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <omp.h>
-
 #include <chrono>
 
 using namespace std::chrono;
@@ -38,24 +36,9 @@ typedef unsigned int uint;
 int main(int argc, char *argv[])
 {
     // Rudimentary startup arg check
-    if (argc != 3)
+    if (argc != 2)
     {
-        fprintf(stderr, "Should have 2 arguments, the original video path and num of threads!\n");
-        return -1;
-    }
-    
-    const int requested_thread_num = atoi(argv[2]);
-    omp_set_num_threads(requested_thread_num);
-
-    int actual_thread_num;
-    #pragma omp parallel shared(actual_thread_num)
-    {
-        actual_thread_num = omp_get_num_threads();
-    }
-
-    if (actual_thread_num < requested_thread_num)
-    {
-        fprintf(stderr, "Started parallel program with %d threads\n", actual_thread_num);
+        fprintf(stderr, "Should have 1 argument, the original video path!\n");
         return -1;
     }
 
@@ -91,8 +74,8 @@ int main(int argc, char *argv[])
     }
 
     // Program uses only 2 frame buffers
-    uint8_t *video_data_1 = (uint8_t *)malloc(sizeof(*video_data_1) * VIDEO_SIZE);
-    uint8_t *video_data_2 = (uint8_t *)malloc(sizeof(*video_data_1) * VIDEO_SIZE);
+    uint8_t *video_data_1 = malloc(sizeof(*video_data_1) * VIDEO_SIZE);
+    uint8_t *video_data_2 = malloc(sizeof(*video_data_1) * VIDEO_SIZE);
 
     size_t byte_count;
     uint8_t *rgb_video_data = &video_data_1[0];
@@ -121,7 +104,6 @@ int main(int argc, char *argv[])
     /*** RGB --> YUV ***/
     /*******************/
     MEASURE_START();
-    #pragma omp parallel for //collapse(2)
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
     {
         for (uint pixel_i = 0; pixel_i != PIXEL_NUM; ++pixel_i)
@@ -143,7 +125,7 @@ int main(int argc, char *argv[])
     MEASURE_PRINT("RGB to YUV");
 
     MEASURE_START();
-    /*byte_count = fwrite(
+    byte_count = fwrite(
         &yuv_video_data[0],
         sizeof(video_data_1[0]), VIDEO_SIZE, 
         yuv_file
@@ -152,7 +134,7 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Only wrote %u bytes of yuv video!\n", (uint)byte_count);
         return -1;
-    }*/
+    }
     MEASURE_STOP();
     //MEASURE_PRINT("Store YUV"); Measuring for total time
 
@@ -160,21 +142,17 @@ int main(int argc, char *argv[])
     /*** Undersampling 4:4:4 --> 4:2:0 ***/
     /*************************************/
     MEASURE_START();
-    #pragma omp parallel for
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
     {
+        // Just copy Y values
         memcpy(
             &yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE], 
             &yuv_video_data[frame_i * FRAME_SIZE], 
             PIXEL_NUM
         );
-    }
-    #pragma omp parallel for //collapse(3)
-    for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
-    {
-        for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
+        for (uint row = 0; row != PIXEL_HEIGHT; row += 2)
         {            
-            for (uint col = 0; col < PIXEL_WIDTH; col += 2)
+            for (uint col = 0; col != PIXEL_WIDTH; col += 2)
             {
                 // Average 4 U values into 1 (+ PIXEL_NUM because Y is preserved)
                 yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM] = (
@@ -197,7 +175,7 @@ int main(int argc, char *argv[])
     MEASURE_PRINT("Undersample YUV");
 
     MEASURE_START();
-    /*byte_count = fwrite(
+    byte_count = fwrite(
         &yuv_undersampled_data[0],
         sizeof(video_data_1[0]), UNDERSAMPLED_FRAME_SIZE * FRAME_NUM, 
         yuv_undersampled_file
@@ -206,7 +184,7 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Only wrote %u bytes of undersampled video!\n", (uint)byte_count);
         return -1;
-    }*/
+    }
     MEASURE_STOP();
     //MEASURE_PRINT("Store undersampled"); Measuring for total time
 
@@ -214,7 +192,6 @@ int main(int argc, char *argv[])
     /*** Oversampling  4:2:0 --> 4:4:4 ***/
     /*************************************/
     MEASURE_START();
-    #pragma omp parallel for
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
     {
         // Just copy Y values
@@ -222,14 +199,10 @@ int main(int argc, char *argv[])
             &yuv_oversampled_data[frame_i * FRAME_SIZE], 
             &yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE], 
             PIXEL_NUM
-        );
-    }
-    #pragma omp parallel for //collapse(3)
-    for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
-    {
-        for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
+        ); 
+        for (uint row = 0; row != PIXEL_HEIGHT; row += 2)
         {
-            for (uint col = 0; col < PIXEL_WIDTH; col += 2)
+            for (uint col = 0; col != PIXEL_WIDTH; col += 2)
             {
                 // Inverse operation of undersampling
                 // Oversample U component
@@ -258,7 +231,7 @@ int main(int argc, char *argv[])
     MEASURE_PRINT("Oversample YUV");
 
     MEASURE_START();
-    /*byte_count = fwrite(
+    byte_count = fwrite(
         &yuv_oversampled_data[0],
         sizeof(video_data_1[0]), VIDEO_SIZE, 
         yuv_oversampled_file
@@ -267,14 +240,13 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Only wrote %u bytes of oversampled video!\n", (uint)byte_count);
         return -1;
-    }*/
+    }
     MEASURE_STOP();
     //MEASURE_PRINT("Store oversampled"); Measuring for total time
 
     // Print total time
     MEASURE_PRINT_TOTAL();
 
-    
     /*************************/
     /*** CLOSE VIDEO FILES ***/
     /*************************/
