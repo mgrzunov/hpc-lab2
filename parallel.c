@@ -41,7 +41,13 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Should have 2 arguments, the original video path and num of threads!\n");
         return -1;
     }
-    omp_set_num_threads(atoi(argv[2]));
+    
+    const int thread_num = atoi(argv[2]);
+    omp_set_num_threads(thread_num);
+    if (omp_get_thread_num() < thread_num)
+    {
+        fprintf(stderr, "Started parallel program with %d threads\n", omp_get_thread_num());
+    }
 
     /************************/
     /*** OPEN VIDEO FILES ***/
