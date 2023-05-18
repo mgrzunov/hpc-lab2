@@ -74,8 +74,8 @@ int main(int argc, char *argv[])
     }
 
     // Program uses only 2 frame buffers
-    uint8_t *video_data_1 = malloc(sizeof(*video_data_1) * VIDEO_SIZE);
-    uint8_t *video_data_2 = malloc(sizeof(*video_data_1) * VIDEO_SIZE);
+    uint8_t *video_data_1 = (uint8_t *)malloc(sizeof(*video_data_1) * VIDEO_SIZE);
+    uint8_t *video_data_2 = (uint8_t *)malloc(sizeof(*video_data_1) * VIDEO_SIZE);
 
     size_t byte_count;
     uint8_t *rgb_video_data = &video_data_1[0];
