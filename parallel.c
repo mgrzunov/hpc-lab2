@@ -44,9 +44,10 @@ int main(int argc, char *argv[])
     
     const int thread_num = atoi(argv[2]);
     omp_set_num_threads(thread_num);
-    if (omp_get_thread_num() < thread_num)
+    if (omp_get_num_threads() < thread_num)
     {
         fprintf(stderr, "Started parallel program with %d threads\n", omp_get_thread_num());
+        return -1;
     }
 
     /************************/
