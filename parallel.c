@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
     /*** RGB --> YUV ***/
     /*******************/
     MEASURE_START();
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for //collapse(2)
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
     {
         for (uint pixel_i = 0; pixel_i != PIXEL_NUM; ++pixel_i)
@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
             PIXEL_NUM
         );
     }
-    #pragma omp parallel for collapse(3)
+    #pragma omp parallel for //collapse(3)
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
     {
         for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
             PIXEL_NUM
         );
     }
-    #pragma omp parallel for collapse(3)
+    #pragma omp parallel for //collapse(3)
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
     {
         for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
