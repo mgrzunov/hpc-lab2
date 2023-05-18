@@ -42,13 +42,23 @@ int main(int argc, char *argv[])
         return -1;
     }
     
-    const int thread_num = atoi(argv[2]);
-    omp_set_num_threads(thread_num);
-    if (omp_get_num_threads() < thread_num)
+    const int requested_thread_num = atoi(argv[2]);
+    omp_set_num_threads(requested_thread_num);
+
+    int actual_thread_num;
+    #pragma omp parallel shared(actual_thread_num)
     {
-        fprintf(stderr, "Started parallel program with %d threads\n", omp_get_thread_num());
+        actual_thread_num = omp_get_num_threads();
+        printf("thread_id = %d\n", omp_get_thread_num());
+    }
+
+    if (actual_thread_num < requested_thread_num)
+    {
+        fprintf(stderr, "Started parallel program with %d threads\n", actual_thread_num);
         return -1;
     }
+    
+    return 0;
 
     /************************/
     /*** OPEN VIDEO FILES ***/
