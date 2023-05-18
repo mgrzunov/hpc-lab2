@@ -103,7 +103,6 @@ int main(int argc, char *argv[])
     /**********************/
     /*** LOAD RGB VIDEO ***/
     /**********************/
-    MEASURE_START();
     byte_count = fread(
         &rgb_video_data[0],
         sizeof(video_data_1[0]), VIDEO_SIZE, 
@@ -114,14 +113,12 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Only loaded %u bytes of original!\n", (uint)byte_count);
         return -1;
     }
-    MEASURE_STOP();
-    //MEASURE_PRINT("Load RGB"); Measuring for total
 
     /*******************/
     /*** RGB --> YUV ***/
     /*******************/
     MEASURE_START();
-    #pragma omp parallel for //collapse(2)
+    #pragma omp parallel for collapse(2)
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
     {
         for (uint pixel_i = 0; pixel_i != PIXEL_NUM; ++pixel_i)
@@ -142,8 +139,7 @@ int main(int argc, char *argv[])
     MEASURE_STOP();
     MEASURE_PRINT("RGB to YUV");
 
-    MEASURE_START();
-    /*byte_count = fwrite(
+    byte_count = fwrite(
         &yuv_video_data[0],
         sizeof(video_data_1[0]), VIDEO_SIZE, 
         yuv_file
@@ -152,9 +148,7 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Only wrote %u bytes of yuv video!\n", (uint)byte_count);
         return -1;
-    }*/
-    MEASURE_STOP();
-    //MEASURE_PRINT("Store YUV"); Measuring for total time
+    }
 
     /*************************************/
     /*** Undersampling 4:4:4 --> 4:2:0 ***/
@@ -169,7 +163,7 @@ int main(int argc, char *argv[])
             PIXEL_NUM
         );
     }
-    #pragma omp parallel for //collapse(3)
+    #pragma omp parallel for collapse(3)
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
     {
         for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
@@ -196,8 +190,7 @@ int main(int argc, char *argv[])
     MEASURE_STOP();
     MEASURE_PRINT("Undersample YUV");
 
-    MEASURE_START();
-    /*byte_count = fwrite(
+    byte_count = fwrite(
         &yuv_undersampled_data[0],
         sizeof(video_data_1[0]), UNDERSAMPLED_FRAME_SIZE * FRAME_NUM, 
         yuv_undersampled_file
@@ -206,9 +199,7 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Only wrote %u bytes of undersampled video!\n", (uint)byte_count);
         return -1;
-    }*/
-    MEASURE_STOP();
-    //MEASURE_PRINT("Store undersampled"); Measuring for total time
+    }
 
     /*************************************/
     /*** Oversampling  4:2:0 --> 4:4:4 ***/
@@ -224,7 +215,7 @@ int main(int argc, char *argv[])
             PIXEL_NUM
         );
     }
-    #pragma omp parallel for //collapse(3)
+    #pragma omp parallel for collapse(3)
     for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
     {
         for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
@@ -257,8 +248,7 @@ int main(int argc, char *argv[])
     MEASURE_STOP();
     MEASURE_PRINT("Oversample YUV");
 
-    MEASURE_START();
-    /*byte_count = fwrite(
+    byte_count = fwrite(
         &yuv_oversampled_data[0],
         sizeof(video_data_1[0]), VIDEO_SIZE, 
         yuv_oversampled_file
@@ -267,14 +257,11 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Only wrote %u bytes of oversampled video!\n", (uint)byte_count);
         return -1;
-    }*/
-    MEASURE_STOP();
-    //MEASURE_PRINT("Store oversampled"); Measuring for total time
+    }
 
     // Print total time
     MEASURE_PRINT_TOTAL();
 
-    
     /*************************/
     /*** CLOSE VIDEO FILES ***/
     /*************************/
