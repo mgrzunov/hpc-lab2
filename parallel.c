@@ -49,7 +49,6 @@ int main(int argc, char *argv[])
     #pragma omp parallel shared(actual_thread_num)
     {
         actual_thread_num = omp_get_num_threads();
-        printf("thread_id = %d\n", omp_get_thread_num());
     }
 
     if (actual_thread_num < requested_thread_num)
@@ -57,8 +56,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Started parallel program with %d threads\n", actual_thread_num);
         return -1;
     }
-    
-    return 0;
 
     /************************/
     /*** OPEN VIDEO FILES ***/
@@ -144,7 +141,7 @@ int main(int argc, char *argv[])
     MEASURE_PRINT("RGB to YUV");
 
     MEASURE_START();
-    byte_count = fwrite(
+    /*byte_count = fwrite(
         &yuv_video_data[0],
         sizeof(video_data_1[0]), VIDEO_SIZE, 
         yuv_file
@@ -153,7 +150,7 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Only wrote %u bytes of yuv video!\n", (uint)byte_count);
         return -1;
-    }
+    }*/
     MEASURE_STOP();
     //MEASURE_PRINT("Store YUV"); Measuring for total time
 
@@ -198,7 +195,7 @@ int main(int argc, char *argv[])
     MEASURE_PRINT("Undersample YUV");
 
     MEASURE_START();
-    byte_count = fwrite(
+    /*byte_count = fwrite(
         &yuv_undersampled_data[0],
         sizeof(video_data_1[0]), UNDERSAMPLED_FRAME_SIZE * FRAME_NUM, 
         yuv_undersampled_file
@@ -207,7 +204,7 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Only wrote %u bytes of undersampled video!\n", (uint)byte_count);
         return -1;
-    }
+    }*/
     MEASURE_STOP();
     //MEASURE_PRINT("Store undersampled"); Measuring for total time
 
@@ -259,7 +256,7 @@ int main(int argc, char *argv[])
     MEASURE_PRINT("Oversample YUV");
 
     MEASURE_START();
-    byte_count = fwrite(
+    /*byte_count = fwrite(
         &yuv_oversampled_data[0],
         sizeof(video_data_1[0]), VIDEO_SIZE, 
         yuv_oversampled_file
@@ -268,7 +265,7 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Only wrote %u bytes of oversampled video!\n", (uint)byte_count);
         return -1;
-    }
+    }*/
     MEASURE_STOP();
     //MEASURE_PRINT("Store oversampled"); Measuring for total time
 
