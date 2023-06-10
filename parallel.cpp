@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
     MEASURE_START();
     #pragma omp parallel
     {
-        #pragma omp single
+        #pragma omp for collapse(3)
         {
             for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
             {
@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
     }
     #pragma omp parallel
     {
-        #pragma omp single
+        #pragma omp for collapse(3)
         {
             for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
             {
@@ -234,7 +234,7 @@ int main(int argc, char *argv[])
     }
     #pragma omp parallel
     {
-        #pragma omp single
+        #pragma omp for collapse(3)
         {
             for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
             {
