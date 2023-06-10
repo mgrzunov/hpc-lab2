@@ -6,4 +6,7 @@ YUView-Win/
 *.out
 par
 seq
-.xlsx
+*.xlsx
+*.docx
+*.doc
+*.pdf
