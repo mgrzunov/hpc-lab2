@@ -90,22 +90,18 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    // Program uses only 2 frame buffers
-    uint8_t *video_data_1 = (uint8_t *)malloc(sizeof(*video_data_1) * VIDEO_SIZE);
-    uint8_t *video_data_2 = (uint8_t *)malloc(sizeof(*video_data_1) * VIDEO_SIZE);
-
     size_t byte_count;
-    uint8_t *rgb_video_data = &video_data_1[0];
-    uint8_t *yuv_video_data = &video_data_1[0]; // Can use same buffer
-    uint8_t *yuv_undersampled_data = &video_data_2[0]; // Switches buffer
-    uint8_t *yuv_oversampled_data = &video_data_1[0]; // Switches buffer
+    uint8_t *rgb_video_data =           (uint8_t *)malloc(sizeof(*rgb_video_data) * VIDEO_SIZE);
+    uint8_t *yuv_video_data =           (uint8_t *)malloc(sizeof(*yuv_video_data) * VIDEO_SIZE);
+    uint8_t *yuv_undersampled_data =    (uint8_t *)malloc(sizeof(*yuv_undersampled_data) * VIDEO_SIZE);
+    uint8_t *yuv_oversampled_data =     (uint8_t *)malloc(sizeof(*yuv_oversampled_data) * VIDEO_SIZE);
 
     /**********************/
     /*** LOAD RGB VIDEO ***/
     /**********************/
     byte_count = fread(
         &rgb_video_data[0],
-        sizeof(video_data_1[0]), VIDEO_SIZE, 
+        sizeof(rgb_video_data[0]), VIDEO_SIZE, 
         rgb_video_file
     );
     if (byte_count != VIDEO_SIZE)
@@ -114,39 +110,128 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /*******************/
-    /*** RGB --> YUV ***/
-    /*******************/
     MEASURE_START();
-    #pragma omp target
+
+    #pragma omp target map(to: rgb_video_data[VIDEO_SIZE]) \
+                    map(from: yuv_video_data[VIDEO_SIZE]) \
+                    map(from: yuv_undersampled_data[VIDEO_SIZE]) \
+                    map(from: yuv_oversampled_data[VIDEO_SIZE])
     {
-        #pragma omp parallel for collapse(2)
+        /*******************/
+        /*** RGB --> YUV ***/
+        /*******************/
+        #pragma omp parallel for
+        for (uint frame_i = 0; frame_i < FRAME_NUM; ++frame_i)
         {
-            for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
+            memcpy(
+                &yuv_video_data[frame_i * FRAME_SIZE], 
+                &rgb_video_data[frame_i * FRAME_SIZE], 
+                PIXEL_NUM
+            );
+        }
+        #pragma omp parallel for collapse(2)
+        for (uint frame_i = 0; frame_i < FRAME_NUM; ++frame_i)
+        {
+            for (uint pixel_i = 0; pixel_i < PIXEL_NUM; ++pixel_i)
             {
-                for (uint pixel_i = 0; pixel_i != PIXEL_NUM; ++pixel_i)
+                const uint8_t r_value = rgb_video_data[frame_i * FRAME_SIZE + pixel_i];
+                const uint8_t g_value = rgb_video_data[frame_i * FRAME_SIZE + pixel_i + PIXEL_NUM];
+                const uint8_t b_value = rgb_video_data[frame_i * FRAME_SIZE + pixel_i + PIXEL_NUM * 2];
+
+                const uint8_t y_value = (uint8_t)(0.257f * r_value + 0.504f * g_value + 0.098f * b_value + 16);
+                const uint8_t u_value = (uint8_t)(-0.148f * r_value - 0.291f * g_value + 0.439f * b_value + 128);
+                const uint8_t v_value = (uint8_t)(0.439f * r_value - 0.368f * g_value - 0.071 * b_value + 128);
+
+                yuv_video_data[frame_i * FRAME_SIZE + pixel_i]                 = y_value;
+                yuv_video_data[frame_i * FRAME_SIZE + pixel_i + PIXEL_NUM]     = u_value;
+                yuv_video_data[frame_i * FRAME_SIZE + pixel_i + PIXEL_NUM * 2] = v_value;
+            }
+        }
+
+        /*************************************/
+        /*** Undersampling 4:4:4 --> 4:2:0 ***/
+        /*************************************/
+        #pragma omp parallel for
+        for (uint frame_i = 0; frame_i < FRAME_NUM; ++frame_i)
+        {
+            memcpy(
+                &yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE], 
+                &yuv_video_data[frame_i * FRAME_SIZE], 
+                PIXEL_NUM
+            );
+        }
+        #pragma omp parallel for collapse(3)
+        for (uint frame_i = 0; frame_i < FRAME_NUM; ++frame_i)
+        {
+            for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
+            {            
+                for (uint col = 0; col < PIXEL_WIDTH; col += 2)
                 {
-                    const uint8_t r_value = rgb_video_data[frame_i * FRAME_SIZE + pixel_i];
-                    const uint8_t g_value = rgb_video_data[frame_i * FRAME_SIZE + pixel_i + PIXEL_NUM];
-                    const uint8_t b_value = rgb_video_data[frame_i * FRAME_SIZE + pixel_i + PIXEL_NUM * 2];
+                    // Average 4 U values into 1 (+ PIXEL_NUM because Y is preserved)
+                    yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM] = (
+                        yuv_video_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col     + PIXEL_NUM] +
+                        yuv_video_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col + 1 + PIXEL_NUM] +
+                        yuv_video_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col     + PIXEL_NUM] +
+                        yuv_video_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col + 1 + PIXEL_NUM]
+                    ) / 4;
+                    // Average 4 V values into 1 (+ PIXEL_NUM + PIXEL_NUM / 4 for Y and U offset)
+                    yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)] = (
+                        yuv_video_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col     + (2 * PIXEL_NUM)] +
+                        yuv_video_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col + 1 + (2 * PIXEL_NUM)] +
+                        yuv_video_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col     + (2 * PIXEL_NUM)] +
+                        yuv_video_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col + 1 + (2 * PIXEL_NUM)]
+                    ) / 4;
+                }
+            }
+        }
 
-                    const uint8_t y_value = (uint8_t)(0.257f * r_value + 0.504f * g_value + 0.098f * b_value + 16);
-                    const uint8_t u_value = (uint8_t)(-0.148f * r_value - 0.291f * g_value + 0.439f * b_value + 128);
-                    const uint8_t v_value = (uint8_t)(0.439f * r_value - 0.368f * g_value - 0.071 * b_value + 128);
+        /*************************************/
+        /*** Oversampling  4:2:0 --> 4:4:4 ***/
+        /*************************************/
+        #pragma omp parallel for
+        for (uint frame_i = 0; frame_i < FRAME_NUM; ++frame_i)
+        {
+            memcpy(
+                &yuv_oversampled_data[frame_i * FRAME_SIZE], 
+                &yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE], 
+                PIXEL_NUM
+            );
+        }
+        #pragma omp parallel for collapse(3)
+        for (uint frame_i = 0; frame_i < FRAME_NUM; ++frame_i)
+        {
+            for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
+            {
+                for (uint col = 0; col < PIXEL_WIDTH; col += 2)
+                {
+                    // Inverse operation of undersampling
+                    // Oversample U component
+                    yuv_oversampled_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col     + PIXEL_NUM] =
+                        yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
+                    yuv_oversampled_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col + 1 + PIXEL_NUM] =
+                        yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
+                    yuv_oversampled_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col     + PIXEL_NUM] =
+                        yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
+                    yuv_oversampled_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col + 1 + PIXEL_NUM] =
+                        yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
 
-                    yuv_video_data[frame_i * FRAME_SIZE + pixel_i]                 = y_value;
-                    yuv_video_data[frame_i * FRAME_SIZE + pixel_i + PIXEL_NUM]     = u_value;
-                    yuv_video_data[frame_i * FRAME_SIZE + pixel_i + PIXEL_NUM * 2] = v_value;
+                    // Oversample V component
+                    yuv_oversampled_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col     + (2 * PIXEL_NUM)] =
+                        yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)]; 
+                    yuv_oversampled_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col + 1 + (2 * PIXEL_NUM)] =
+                        yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
+                    yuv_oversampled_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col     + (2 * PIXEL_NUM)] =
+                        yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
+                    yuv_oversampled_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col + 1 + (2 * PIXEL_NUM)] =
+                        yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
                 }
             }
         }
     }
-    MEASURE_STOP();
-    MEASURE_PRINT("RGB to YUV");
 
     byte_count = fwrite(
         &yuv_video_data[0],
-        sizeof(video_data_1[0]), VIDEO_SIZE, 
+        sizeof(yuv_video_data[0]), VIDEO_SIZE, 
         yuv_file
     );
     if (byte_count != VIDEO_SIZE)
@@ -155,55 +240,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /*************************************/
-    /*** Undersampling 4:4:4 --> 4:2:0 ***/
-    /*************************************/
-    MEASURE_START();
-    #pragma omp parallel for
-    for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
-    {
-        memcpy(
-            &yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE], 
-            &yuv_video_data[frame_i * FRAME_SIZE], 
-            PIXEL_NUM
-        );
-    }
-    #pragma omp target
-    {
-        #pragma omp parallel for collapse(3)
-        {
-            for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
-            {
-                for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
-                {            
-                    for (uint col = 0; col < PIXEL_WIDTH; col += 2)
-                    {
-                        // Average 4 U values into 1 (+ PIXEL_NUM because Y is preserved)
-                        yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM] = (
-                            yuv_video_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col     + PIXEL_NUM] +
-                            yuv_video_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col + 1 + PIXEL_NUM] +
-                            yuv_video_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col     + PIXEL_NUM] +
-                            yuv_video_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col + 1 + PIXEL_NUM]
-                        ) / 4;
-                        // Average 4 V values into 1 (+ PIXEL_NUM + PIXEL_NUM / 4 for Y and U offset)
-                        yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)] = (
-                            yuv_video_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col     + (2 * PIXEL_NUM)] +
-                            yuv_video_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col + 1 + (2 * PIXEL_NUM)] +
-                            yuv_video_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col     + (2 * PIXEL_NUM)] +
-                            yuv_video_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col + 1 + (2 * PIXEL_NUM)]
-                        ) / 4;
-                    }
-                }
-            }
-        }
-    }
-    
-    MEASURE_STOP();
-    MEASURE_PRINT("Undersample YUV");
-
     byte_count = fwrite(
         &yuv_undersampled_data[0],
-        sizeof(video_data_1[0]), UNDERSAMPLED_FRAME_SIZE * FRAME_NUM, 
+        sizeof(yuv_undersampled_data[0]), UNDERSAMPLED_FRAME_SIZE * FRAME_NUM, 
         yuv_undersampled_file
     );
     if (byte_count != UNDERSAMPLED_FRAME_SIZE * FRAME_NUM)
@@ -212,62 +251,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /*************************************/
-    /*** Oversampling  4:2:0 --> 4:4:4 ***/
-    /*************************************/
-    MEASURE_START();
-    #pragma omp parallel for
-    for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
-    {
-        // Just copy Y values
-        memcpy(
-            &yuv_oversampled_data[frame_i * FRAME_SIZE], 
-            &yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE], 
-            PIXEL_NUM
-        );
-    }
-    #pragma omp target
-    {
-        #pragma omp parallel for collapse(3)
-        {
-            for (uint frame_i = 0; frame_i != FRAME_NUM; ++frame_i)
-            {
-                for (uint row = 0; row < PIXEL_HEIGHT; row += 2)
-                {
-                    for (uint col = 0; col < PIXEL_WIDTH; col += 2)
-                    {
-                        // Inverse operation of undersampling
-                        // Oversample U component
-                        yuv_oversampled_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col     + PIXEL_NUM] =
-                            yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
-                        yuv_oversampled_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col + 1 + PIXEL_NUM] =
-                            yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
-                        yuv_oversampled_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col     + PIXEL_NUM] =
-                            yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
-                        yuv_oversampled_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col + 1 + PIXEL_NUM] =
-                            yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + PIXEL_NUM]; 
-
-                        // Oversample V component
-                        yuv_oversampled_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col     + (2 * PIXEL_NUM)] =
-                            yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)]; 
-                        yuv_oversampled_data[frame_i * FRAME_SIZE +    row    * PIXEL_WIDTH + col + 1 + (2 * PIXEL_NUM)] =
-                            yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
-                        yuv_oversampled_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col     + (2 * PIXEL_NUM)] =
-                            yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
-                        yuv_oversampled_data[frame_i * FRAME_SIZE + (row + 1) * PIXEL_WIDTH + col + 1 + (2 * PIXEL_NUM)] =
-                            yuv_undersampled_data[frame_i * UNDERSAMPLED_FRAME_SIZE + (row / 2) * (PIXEL_WIDTH / 2) + (col / 2) + (PIXEL_NUM + PIXEL_NUM / 4)];
-                    }
-                }
-            }
-        }
-    }
-    
-    MEASURE_STOP();
-    MEASURE_PRINT("Oversample YUV");
-
     byte_count = fwrite(
         &yuv_oversampled_data[0],
-        sizeof(video_data_1[0]), VIDEO_SIZE, 
+        sizeof(yuv_oversampled_data[0]), VIDEO_SIZE, 
         yuv_oversampled_file
     );
     if (byte_count != VIDEO_SIZE)
@@ -277,6 +263,7 @@ int main(int argc, char *argv[])
     }
 
     // Print total time
+    MEASURE_STOP();
     MEASURE_PRINT_TOTAL();
 
     /*************************/
